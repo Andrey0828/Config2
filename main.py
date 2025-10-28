@@ -1,6 +1,27 @@
 import argparse
 import sys
 import os
+import urllib.request
+import json
+
+
+def get_dependencies_from_registry(package_name):
+    url = f"https://registry.npmjs.org/{package_name}"
+    try:
+        with urllib.request.urlopen(url) as response:
+            data = json.loads(response.read())
+
+            # Получаем последнюю версию пакета
+            latest_version = data.get('dist-tags', {}).get('latest')
+            if not latest_version:
+                raise ValueError(f"Latest version not found for package {package_name}")
+            # Извлекаем зависимости для последней версии
+            versions = data.get('versions', {})
+            dependencies = versions[latest_version].get('dependencies', {})
+            return dependencies
+
+    except Exception as e:
+        raise RuntimeError(f"Failed to fetch data from registry: {e}")
 
 
 def main():
@@ -29,16 +50,18 @@ def main():
             if not os.path.exists(args.source):
                 raise FileNotFoundError(f"Source file not found: {args.source}")
 
+        # Получение и вывод зависимостей
+        dependencies = get_dependencies_from_registry(args.package)
+        if dependencies:
+            print("Direct dependencies:")
+            for dep, version in dependencies.items():
+                print(f"{dep}: {version}")
+        else:
+            print("No direct dependencies found")
+
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)
-
-    # Вывод всех параметров в формате ключ-значение
-    print("Configuration parameters:")
-    print(f"package: {args.package}")
-    print(f"source: {args.source}")
-    print(f"test_repo_mode: {args.test_repo_mode}")
-    print(f"max_depth: {args.max_depth}")
 
 
 if __name__ == "__main__":
